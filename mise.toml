@@ -1,2 +1,105 @@
+min_version = "2024.9.5"
+
+[env]
+# Use the project name derived from the current directory
+PROJECT_NAME = "{{ config_root | basename }}"
+
+# Automatic virtualenv activation
+_.python.venv = { path = ".venv", create = true }
+
 [tools]
-poetry = "latest"
+python = "3.11.11"
+ruff = "latest"
+uv = "latest"
+
+[tasks.install]
+description = "Install dependencies"
+alias = "i"
+run = "uv pip install -e ."
+
+[tasks.dev-install]
+description = "Install development dependencies"
+alias = "di"
+run = '''
+uv pip install -e ".[dev]"
+uv pip install pytest pytest-cov black ruff
+'''
+
+[tasks.run]
+description = "Run the ASCII webcam viewer"
+alias = "r"
+run = "python -m ascii_webcam.app"
+
+[tasks.list]
+description = "List available presets and color schemes"
+alias = "l"
+run = "python -m ascii_webcam.app --list-presets"
+
+[tasks.matrix]
+description = "Run with Matrix style preset"
+alias = "m"
+run = "python -m ascii_webcam.app --preset matrix --scheme matrix"
+
+[tasks.cyberpunk]
+description = "Run with cyberpunk style"
+alias = "c"
+run = "python -m ascii_webcam.app --preset detailed --scheme cyberpunk"
+
+[tasks.vintage]
+description = "Run with vintage style"
+alias = "v"
+run = "python -m ascii_webcam.app --preset classic --scheme vintage"
+
+[tasks.neon]
+description = "Run with neon style"
+alias = "n"
+run = "python -m ascii_webcam.app --preset detailed --scheme neon"
+
+[tasks.test]
+description = "Run tests"
+alias = "t"
+run = "pytest tests/"
+
+[tasks.test-cov]
+description = "Run tests with coverage"
+alias = "tc"
+run = "pytest tests/ --cov=ascii_webcam --cov-report=term-missing"
+
+[tasks.lint]
+description = "Lint the code"
+run = "ruff check ."
+
+[tasks.format]
+description = "Format the code"
+alias = "f"
+run = "ruff format ."
+
+[tasks.clean]
+description = "Clean up generated files"
+alias = "cl"
+run = '''
+rm -rf .pytest_cache
+rm -rf .coverage
+rm -rf .ruff_cache
+rm -rf __pycache__
+rm -rf ascii_webcam/__pycache__
+rm -rf ascii_webcam/tests/__pycache__
+rm -rf *.egg-info
+'''
+
+[tasks.info]
+description = "Print project information"
+alias = "in"
+run = '''
+echo "Project: $PROJECT_NAME"
+echo "Virtual Environment: $VIRTUAL_ENV"
+echo "Python Version: $(python --version)"
+echo "OpenCV Version: $(python -c 'import cv2; print(cv2.__version__)')"
+echo "NumPy Version: $(python -c 'import numpy; print(numpy.__version__)')"
+'''
+
+[tasks.term-test]
+description = "Run terminal test pattern"
+alias = "tt"
+run = "python ascii_webcam/term_test.py"
+
