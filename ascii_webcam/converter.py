@@ -25,32 +25,29 @@ class ASCIIConverter:
     COLOR_SCHEMES = {
         'true': lambda b, g, r: (r, g, b),  # True colors from webcam
         'neon': lambda b, g, r: (
-            min(int(r * 1.4), 255),
-            min(int(g * 1.4), 255),
-            min(int(b * 1.2), 255)
+            np.minimum(r * 1.4, 255),
+            np.minimum(g * 1.4, 255),
+            np.minimum(b * 1.2, 255)
         ),  # Brighter, more vibrant
-        'matrix': lambda b, g, r: (0, min(int(g * 1.5), 255), 0),  # Green only, Matrix style
+        'matrix': lambda b, g, r: (
+            np.zeros_like(b),
+            np.minimum(g * 1.5, 255),
+            np.zeros_like(r)
+        ),  # Green only, Matrix style
         'vintage': lambda b, g, r: (
-            min(int(r * 1.2), 255),
-            min(int(g * 1.2), 255),
-            max(int(b * 0.8), 0)
+            np.minimum(r * 1.2, 255),
+            np.minimum(g * 1.2, 255),
+            np.maximum(b * 0.8, 0)
         ),  # Sepia-like tones
         'cyberpunk': lambda b, g, r: (
-            min(int(b * 1.4), 255),
-            min(int(g * 1.2), 255),
-            min(int(r * 1.6), 255)
+            np.minimum(b * 1.4, 255),
+            np.minimum(g * 1.2, 255),
+            np.minimum(r * 1.6, 255)
         ),  # Purple/pink hues
     }
     
     def __init__(self, preset: str = 'classic', width: int = 80, height: int = None, color_scheme: str = 'true'):
-        """Initialize the ASCII converter.
-        
-        Args:
-            preset: Name of the character preset to use
-            width: Target width of ASCII output
-            height: Target height of ASCII output (optional)
-            color_scheme: Name of the color scheme to use
-        """
+        """Initialize the ASCII converter."""
         if preset not in self.CHAR_PRESETS:
             raise ValueError(f"Unknown preset '{preset}'. Available presets: {list(self.CHAR_PRESETS.keys())}")
         if color_scheme not in self.COLOR_SCHEMES:
@@ -60,37 +57,66 @@ class ASCIIConverter:
         self.width = width
         self.height = height
         self.char_range = len(self.chars) - 1
-        self.color_scheme = self.COLOR_SCHEMES[color_scheme]
+        self.color_scheme_name = color_scheme  # Store the name
         
-        # Cache for frame dimensions
+        # Cache for frame dimensions and buffers
         self._last_frame_dims: Optional[Tuple[int, int]] = None
         self._last_target_dims: Optional[Tuple[int, int]] = None
+        self._resized_buffer: Optional[np.ndarray] = None
+        self._gray_buffer: Optional[np.ndarray] = None
+        self._char_buffer: Optional[np.ndarray] = None
+        self._color_buffer: Optional[np.ndarray] = None
+        self._intensity_buffer: Optional[np.ndarray] = None
+        self._char_indices_buffer: Optional[np.ndarray] = None
         
         # Pre-compute character array for faster mapping
         self._char_array = np.array(list(self.chars))
         
-        # Pre-compute ANSI color code template
-        self._color_template = "\033[38;2;{};{};{}m{}"
+        # Pre-compute ANSI color code template and parts
+        self._color_start = "\033[38;2;"
+        self._color_sep = ";"
+        self._color_end = "m"
+        self._color_reset = "\033[0m"
         
-        # Pre-allocate buffers for color processing
-        self._color_buffer = np.zeros((3,), dtype=np.int32)
+        # Pre-allocate string builders for each line
+        self._line_builders = []
+        self._line_parts = []  # For building lines more efficiently
         
-        # Create vectorized color scheme function
+        # Create optimized color scheme function
+        self._setup_color_function(color_scheme)
+    
+    def _setup_color_function(self, color_scheme: str):
+        """Set up the optimized color function for the given scheme."""
         if color_scheme == 'true':
-            self._color_func_vec = lambda frame: frame[..., ::-1]  # Just swap BGR to RGB
+            # Simple BGR to RGB swap
+            self._color_func_vec = lambda frame: frame[..., ::-1].astype(np.uint8)
         elif color_scheme == 'matrix':
-            self._color_func_vec = lambda frame: np.stack([
-                np.zeros_like(frame[..., 0]),
-                np.minimum(frame[..., 1] * 1.5, 255),
-                np.zeros_like(frame[..., 2])
-            ], axis=-1)
+            # Optimized matrix effect
+            def matrix_color(frame):
+                result = np.zeros_like(frame, dtype=np.uint8)
+                result[..., 1] = np.minimum(frame[..., 1] * 1.5, 255).astype(np.uint8)
+                return result
+            self._color_func_vec = matrix_color
         else:
-            # For other schemes, create a vectorized version
-            self._color_func_vec = np.vectorize(
-                self.color_scheme,
-                signature='(n)->(n)',
-                otypes=[np.int32]
-            )
+            # Optimized color scheme with pre-allocated buffer
+            color_func = self.COLOR_SCHEMES[color_scheme]  # Get the color function directly
+            def optimized_color_func(frame):
+                if self._color_buffer is None or self._color_buffer.shape != frame.shape:
+                    self._color_buffer = np.empty_like(frame, dtype=np.uint8)
+                
+                # Process each color channel separately for better vectorization
+                b, g, r = frame[..., 0].astype(np.float32), frame[..., 1].astype(np.float32), frame[..., 2].astype(np.float32)
+                
+                # Apply color function and combine channels
+                r_out, g_out, b_out = color_func(b, g, r)
+                
+                # Stack channels and ensure proper type
+                self._color_buffer[..., 0] = b_out.astype(np.uint8)
+                self._color_buffer[..., 1] = g_out.astype(np.uint8)
+                self._color_buffer[..., 2] = r_out.astype(np.uint8)
+                
+                return self._color_buffer
+            self._color_func_vec = optimized_color_func
     
     @classmethod
     def available_presets(cls) -> list[str]:
@@ -135,14 +161,7 @@ class ASCIIConverter:
         return new_width, new_height
     
     def _resize_frame(self, frame: np.ndarray) -> np.ndarray:
-        """Resize the frame to match terminal dimensions while maintaining aspect ratio.
-        
-        Args:
-            frame: BGR image as numpy array
-        
-        Returns:
-            Resized frame as numpy array
-        """
+        """Resize the frame to match terminal dimensions while maintaining aspect ratio."""
         frame_height, frame_width = frame.shape[:2]
         
         # Check if dimensions have changed
@@ -152,59 +171,80 @@ class ASCIIConverter:
             new_width, new_height = self._calculate_dimensions(frame_width, frame_height)
             self._last_frame_dims = (frame_width, frame_height)
             self._last_target_dims = (self.width, self.height)
+            
+            # Reallocate buffers if needed
+            if (self._resized_buffer is None or 
+                self._resized_buffer.shape[:2] != (new_height, new_width)):
+                self._resized_buffer = np.empty((new_height, new_width, 3), dtype=np.uint8)
+                self._gray_buffer = np.empty((new_height, new_width), dtype=np.uint8)
+                self._char_buffer = np.empty((new_height, new_width), dtype='<U1')
+                self._color_buffer = np.empty((new_height, new_width, 3), dtype=np.uint8)
+                self._intensity_buffer = np.empty((new_height, new_width), dtype=np.float32)
+                self._char_indices_buffer = np.empty((new_height, new_width), dtype=np.int32)
+                self._line_builders = [''] * new_height
+                self._line_parts = [[] for _ in range(new_height)]
         else:
-            # Use cached dimensions
             new_width, new_height = self._calculate_dimensions(frame_width, frame_height)
         
-        # Resize using area interpolation for better quality
-        return cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        # Resize into pre-allocated buffer
+        cv2.resize(frame, (new_width, new_height), dst=self._resized_buffer, interpolation=cv2.INTER_AREA)
+        return self._resized_buffer
     
     def _frame_to_grayscale(self, frame: np.ndarray) -> np.ndarray:
         """Convert frame to grayscale for intensity mapping."""
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY, dst=self._gray_buffer)
+        return self._gray_buffer
     
     def _map_intensity_to_chars(self, intensity: np.ndarray) -> np.ndarray:
         """Map grayscale intensities to ASCII characters."""
-        # Normalize intensity to match char range and convert to indices
-        char_indices = (intensity / 255 * self.char_range).astype(np.int32)
+        # Pre-allocate buffers if needed
+        if self._char_indices_buffer is None or self._char_indices_buffer.shape != intensity.shape:
+            self._char_indices_buffer = np.empty_like(intensity, dtype=np.int32)
+            self._intensity_buffer = np.empty_like(intensity, dtype=np.float32)
+        
+        # Normalize intensity to match char range (using pre-allocated buffer)
+        np.multiply(intensity, self.char_range / 255.0, out=self._intensity_buffer, dtype=np.float32)
+        # First clip in float32
+        np.clip(self._intensity_buffer, 0, self.char_range, out=self._intensity_buffer)
+        # Then convert to int32
+        np.floor(self._intensity_buffer, out=self._intensity_buffer)
+        np.copyto(self._char_indices_buffer, self._intensity_buffer.astype(np.int32))
+        
         # Map indices to characters using pre-computed array
-        return self._char_array[char_indices]
+        np.take(self._char_array, self._char_indices_buffer, out=self._char_buffer)
+        return self._char_buffer
     
     def _create_ansi_text(self, frame: np.ndarray, ascii_chars: np.ndarray) -> str:
-        """Create a string with ANSI color codes for the ASCII art.
-        
-        Args:
-            frame: BGR image as numpy array
-            ascii_chars: Array of ASCII characters
-        
-        Returns:
-            String with ANSI color codes
-        """
+        """Create a string with ANSI color codes for the ASCII art."""
         height, width = ascii_chars.shape
         
         # Apply color scheme to entire frame at once
         colors = self._color_func_vec(frame)
         
-        # Pre-allocate list for lines
-        lines = []
-        line_buffer = []
+        # Ensure we have enough line parts
+        if len(self._line_parts) < height:
+            self._line_parts = [[] for _ in range(height)]
         
-        # Process each line
+        # Process each line using pre-allocated builders
         for y in range(height):
-            # Clear line buffer
-            line_buffer.clear()
+            parts = self._line_parts[y]
+            parts.clear()
             
-            # Process each character in the line
+            # Build line with minimal string operations
             for x in range(width):
                 r, g, b = colors[y, x]
-                line_buffer.append(self._color_template.format(r, g, b, ascii_chars[y, x]))
-            
-            # Add reset code and join line
-            line_buffer.append("\033[0m")
-            lines.append("".join(line_buffer))
+                parts.extend((
+                    self._color_start,
+                    str(r), self._color_sep,
+                    str(g), self._color_sep,
+                    str(b), self._color_end,
+                    ascii_chars[y, x]
+                ))
+            parts.append(self._color_reset)
+            self._line_builders[y] = ''.join(parts)
         
         # Join all lines with newlines
-        return "\n".join(lines)
+        return '\n'.join(self._line_builders)
     
     def convert_frame(self, frame: np.ndarray) -> str:
         """Convert a video frame to colored ASCII art.

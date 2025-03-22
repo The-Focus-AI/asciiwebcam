@@ -44,6 +44,9 @@
   - Fast mode: 15 FPS
   - Slow mode: 5 FPS
   - Real-time switching
+  - Smart frame skipping
+  - Adaptive sleep timing
+  - Pre-allocated buffers
 - Maximum 100MB memory usage
 - CPU usage below 30% on modern processors
 - Efficient screen updates with minimal flicker
@@ -96,8 +99,12 @@
   - Fast mode (15 FPS)
   - Slow mode (5 FPS)
   - Real-time switching
+  - Frame budget tracking
+  - Smart frame skipping
+  - Adaptive sleep timing
 - Efficient screen updates without full clears
 - Proper handling of terminal dimensions
+- Safe resize handling with state reset
 
 ### Display Features
 
@@ -108,9 +115,63 @@
   - Active preset
   - Color scheme
   - Error messages
+  - CPU usage
+  - Memory usage
+  - Frame processing time
 - Help display integration
 - Dynamic resizing support
 - Proper aspect ratio handling
+
+### Performance Optimizations
+
+- Pre-allocated buffers for:
+  - Resized frames
+  - Grayscale conversion
+  - Character mapping
+  - Color processing
+  - Line building
+- Vectorized color processing:
+  - Optimized BGR to RGB conversion
+  - Efficient color scheme application
+  - Pre-computed color templates
+  - Type-safe numpy operations
+  - Zero-copy color transformations
+  - Channel-wise processing
+  - Proper buffer management
+  - Safe type casting
+- Frame processing:
+  - Smart frame skipping
+  - Frame budget tracking
+  - Adaptive sleep timing
+  - Performance metrics reset on state changes
+- Memory management:
+  - Buffer reuse
+  - Minimal allocations
+  - Efficient string building
+  - Pre-allocated color buffers
+  - Safe buffer resizing
+
+### Color Processing System
+
+- Color scheme architecture:
+  - Vectorized color transformations
+  - Channel-wise processing
+  - Type-safe operations
+  - Pre-allocated buffers
+  - Zero-copy where possible
+- Available schemes:
+  - True color (optimized BGR to RGB)
+  - Matrix effect (vectorized green channel)
+  - Neon (enhanced brightness)
+  - Vintage (sepia-tone effect)
+  - Cyberpunk (purple/pink hues)
+- Implementation features:
+  - numpy-based operations
+  - Safe type casting
+  - Buffer reuse
+  - Proper shape handling
+  - Channel separation
+  - Efficient combining
 
 ### Error Handling
 

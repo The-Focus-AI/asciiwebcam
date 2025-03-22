@@ -16,11 +16,14 @@
 - Multiple character presets implemented
 - Command-line preset selection
 - Color schemes tested and optimized:
-  - True color rendering
-  - Matrix green effect
-  - Cyberpunk style
-  - Vintage/sepia tones
-  - Neon enhancement
+  - True color rendering (optimized BGR to RGB)
+  - Matrix green effect (vectorized)
+  - Cyberpunk style (numpy-based)
+  - Vintage/sepia tones (vectorized)
+  - Neon enhancement (numpy operations)
+  - Proper color scheme switching
+  - Zero-copy color transformations
+  - Type-safe color processing
 - Status display implemented:
   - Current preset and color scheme
   - Terminal dimensions
@@ -35,6 +38,10 @@
   - Proper line spacing
   - Clean status line display
   - Dynamic resize handling
+  - Pre-allocated buffers for frame processing
+  - Optimized color scheme vectorization
+  - Smart frame skipping for performance
+  - Adaptive sleep timing
 - Keyboard controls:
   - Fast mode (15 FPS)
   - Slow mode (5 FPS)
@@ -51,6 +58,7 @@
   - Clean resource cleanup
   - Terminal restoration
   - Camera retry functionality
+  - Proper resize error handling
 
 ## What Needs to Be Built
 
@@ -116,15 +124,18 @@
 3. Need to optimize CPU usage further
 4. Need to implement smooth transitions between styles
 5. Need to add performance monitoring
+6. Color scheme switching causing terminal lockup
 
 ## Next Steps
 
 1. Create tests directory and implement basic tests
-2. Optimize performance
+2. Further optimize performance
    - CPU usage optimization
    - Memory usage monitoring
    - Frame processing efficiency
    - Color mapping optimization
+   - Fix color scheme switching
+   - Investigate additional performance improvements
 3. Complete documentation
    - User manual
    - API documentation

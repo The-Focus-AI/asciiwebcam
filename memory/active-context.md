@@ -2,51 +2,56 @@
 
 ## Current Focus
 
-- Setting up testing infrastructure
-- Implementing test suite
-- Optimizing performance
-- Completing documentation
+- Implementing comprehensive test suite
+- Setting up test infrastructure
+- Establishing test coverage metrics
+- Creating test fixtures and utilities
 
 ## Recent Changes
 
-- Verified and updated mise configuration (2025.3.0)
-- Confirmed all development tools are working:
-  - mise for tool and environment management
-  - uv for package management
-  - Pytest 8.3.5 for testing
-  - Ruff 0.11.2 for formatting and linting
-  - Coverage tools installed
-- Verified application runs correctly through mise
-- Updated all memory files to reflect current status
+- Fixed color scheme switching
+- Optimized color processing with numpy vectorization
+- Implemented type-safe buffer management
+- Resolved terminal lockup issues
+- Added proper frame timing control
 
 ## Next Steps
 
-1. Create tests directory and implement test suite
-   - Basic unit tests
-   - Integration tests
-   - Performance tests
-   - Coverage reporting
-2. Optimize performance
-   - Benchmark current performance
-   - Identify bottlenecks
-   - Implement optimizations
-3. Complete documentation
-   - Update README
-   - Create user guide
-   - Document development setup
-   - Document mise usage
+1. Set up testing infrastructure
+
+   - Create tests directory structure
+   - Set up pytest configuration
+   - Create test fixtures
+   - Establish mock objects for camera/terminal
+
+2. Implement core test suites
+
+   - Unit tests for converter
+   - Unit tests for color processing
+   - Integration tests for display
+   - Performance benchmark tests
+
+3. Add test coverage reporting
+   - Set up coverage.py configuration
+   - Define coverage targets
+   - Create coverage reports
+   - Track test metrics
 
 ## Active Decisions
 
-- Using mise for tool and environment management
-- Using uv for package management
-- Switching to Ruff for formatting and linting
-- Need to create comprehensive test suite
-- Need to implement performance monitoring
+- Using pytest as primary test framework
+- Using pytest-cov for coverage reporting
+- Need to mock webcam input for tests
+- Need to simulate terminal environment
+- Focus on testing critical paths first:
+  - Color processing
+  - Frame conversion
+  - Terminal display
+  - Performance metrics
 
 ## Current Implementation Phase
 
-Phase 4: Testing and Documentation
+Phase 5: Testing and Documentation
 
 - Status: In Progress
 - Completed:
@@ -56,19 +61,21 @@ Phase 4: Testing and Documentation
   - Color scheme optimization
   - Status display implementation
   - Fixed display spacing issues
-  - mise configuration and verification
+  - Color scheme switching
+  - Buffer management optimization
 - Current:
-  - Setting up testing infrastructure
-  - Performance optimization planning
+  - Setting up test infrastructure
+  - Implementing test suites
 - Next:
-  - Implement test suite
-  - Add performance monitoring
+  - Add test coverage reporting
+  - Create performance benchmarks
   - Complete documentation
 
 ## Open Questions
 
-- What test cases should we prioritize?
-- How to structure the test suite?
-- What performance metrics should we track?
-- What documentation sections are most important?
-- How to organize the development guide?
+- What should be our minimum test coverage target?
+- How to effectively mock webcam input?
+- How to test terminal display output?
+- What performance metrics should we test?
+- How to ensure consistent test environment?
+- How to test different terminal sizes?

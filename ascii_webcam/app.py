@@ -35,7 +35,7 @@ class ASCIIWebcam:
         'p': 'Next preset',
         's': 'Next color scheme',
         't': 'Toggle status',
-        'h': 'Hide help',
+        'h': 'Toggle help',
         'f': 'Fast mode (15 FPS)',
         'w': 'Slow mode (5 FPS)',
         'r': 'Retry camera',
@@ -67,6 +67,7 @@ class ASCIIWebcam:
         self.frame_num = 0
         self.frame_rate = 15.0  # Default to 15 FPS
         self.error_message: Optional[str] = None
+        self._needs_resize = False  # Flag for resize handling
         
         # Performance monitoring
         self.process = psutil.Process()
@@ -76,6 +77,11 @@ class ASCIIWebcam:
         self.cpu_usage = 0.0
         self.memory_usage = 0.0
         self.actual_fps = 0.0
+        
+        # Frame budget tracking
+        self.frame_budget = 1.0 / self.frame_rate
+        self.frame_deficit = 0.0
+        self.skipped_frames = 0
         
         # Get available presets and color schemes
         self.presets = ASCIIConverter.available_presets()
@@ -122,18 +128,49 @@ class ASCIIWebcam:
             color_scheme=self.color_scheme
         )
     
+    def reset_performance_metrics(self):
+        """Reset all performance metrics and frame timing."""
+        self.frame_times = np.zeros(30)  # Reset rolling window
+        self.frame_time_idx = 0
+        self.last_frame_time = 0
+        self.cpu_usage = 0.0
+        self.memory_usage = 0.0
+        self.actual_fps = 0.0
+        self.frame_deficit = 0.0
+        self.skipped_frames = 0
+        self.frame_budget = 1.0 / self.frame_rate
+
     def handle_resize(self, signum=None, frame=None):
         """Handle terminal resize event."""
-        # Get new terminal size
-        new_size = self.get_terminal_size()
-        
-        # Only update if size actually changed
-        if new_size != self.terminal_size:
-            self.terminal_size = new_size
+        try:
+            # Get new terminal size
+            new_size = self.get_terminal_size()
+            
+            # Only update if size actually changed
+            if new_size != self.terminal_size:
+                self.terminal_size = new_size
+                # Just mark that we need a resize, don't do it here in the signal handler
+                self._needs_resize = True
+        except Exception as e:
+            self.error_message = f"Resize error: {e}. Press 'r' to retry or 'q' to quit."
+
+    def handle_resize_update(self):
+        """Actually perform the resize update in the main loop."""
+        try:
+            # Reset performance metrics
+            self.reset_performance_metrics()
+            
             # Update converter with new dimensions
             self.converter = self.create_converter()
-            # Force refresh display
+            
+            # Clear screen and force refresh display
+            print("\033[2J\033[H", end="")  # Clear screen and move cursor home
             self.print_display()
+            
+            # Reset resize flag
+            self._needs_resize = False
+        except Exception as e:
+            self.error_message = f"Resize error: {e}. Press 'r' to retry or 'q' to quit."
     
     def setup(self):
         """Set up the webcam capture.
@@ -194,17 +231,48 @@ class ASCIIWebcam:
     
     def next_preset(self):
         """Switch to the next available character preset."""
-        current_idx = self.presets.index(self.preset)
-        next_idx = (current_idx + 1) % len(self.presets)
-        self.preset = self.presets[next_idx]
-        self.converter = self.create_converter()
+        try:
+            current_idx = self.presets.index(self.preset)
+            next_idx = (current_idx + 1) % len(self.presets)
+            self.preset = self.presets[next_idx]
+            
+            # Reset performance metrics
+            self.reset_performance_metrics()
+            
+            # Update converter and refresh display
+            self.converter = self.create_converter()
+            print("\033[2J\033[H", end="")  # Clear screen and move cursor home
+            self.print_display()
+        except Exception as e:
+            self.error_message = f"Error changing preset: {e}. Press 'r' to retry or 'q' to quit."
     
     def next_color_scheme(self):
         """Switch to the next available color scheme."""
-        current_idx = self.color_schemes.index(self.color_scheme)
-        next_idx = (current_idx + 1) % len(self.color_schemes)
-        self.color_scheme = self.color_schemes[next_idx]
-        self.converter = self.create_converter()
+        try:
+            current_idx = self.color_schemes.index(self.color_scheme)
+            next_idx = (current_idx + 1) % len(self.color_schemes)
+            self.color_scheme = self.color_schemes[next_idx]
+            
+            # Reset performance metrics
+            self.reset_performance_metrics()
+            
+            # Update converter with new color scheme
+            self.converter = self.create_converter()
+            
+            # Force a full screen refresh
+            print("\033[2J\033[H", end="", flush=True)  # Clear screen and move cursor home
+            
+            # Reset frame timing to prevent stutter
+            self.last_frame_time = time.time()
+            self.frame_deficit = 0.0
+            
+            # Force immediate display update
+            self.print_display()
+            
+            # Ensure output is flushed
+            sys.stdout.flush()
+        except Exception as e:
+            self.error_message = f"Error changing color scheme: {e}. Press 'r' to retry or 'q' to quit."
     
     def toggle_status(self):
         """Toggle the status display."""
@@ -277,6 +345,9 @@ class ASCIIWebcam:
             # Calculate actual FPS from rolling average
             actual_frame_time = np.mean(self.frame_times[self.frame_times > 0])
             self.actual_fps = 1.0 / actual_frame_time if actual_frame_time > 0 else 0.0
+            
+            # Update frame deficit
+            self.frame_deficit += frame_time - self.frame_budget
         
         self.last_frame_time = current_time
         
@@ -284,6 +355,8 @@ class ASCIIWebcam:
         if self.frame_num % 30 == 0:
             self.cpu_usage = self.process.cpu_percent()
             self.memory_usage = self.process.memory_info().rss / 1024 / 1024  # MB
+            # Reset frame deficit periodically to prevent drift
+            self.frame_deficit = max(0, min(self.frame_deficit, self.frame_budget * 2))
     
     def print_display(self):
         """Print the current display using ANSI control codes."""
@@ -380,7 +453,7 @@ class ASCIIWebcam:
             tty.setraw(sys.stdin.fileno())
             
             # Initialize frame timing
-            frame_interval = 1.0 / self.frame_rate  # Use dynamic frame rate
+            frame_interval = 1.0 / self.frame_rate
             last_frame_time = 0
             last_size = self.terminal_size
             
@@ -389,18 +462,27 @@ class ASCIIWebcam:
                 try:
                     current_time = time.time()
                     
-                    # Update frame interval based on current frame rate
+                    # Update frame interval and budget based on current frame rate
                     frame_interval = 1.0 / self.frame_rate
+                    self.frame_budget = frame_interval
                     
-                    # Check if it's time for next frame
-                    if current_time - last_frame_time >= frame_interval:
-                        # Only update display if terminal size changed or it's time for next frame
-                        current_size = self.get_terminal_size()
-                        if current_size != last_size:
-                            self.terminal_size = current_size
-                            self.converter = self.create_converter()
-                            last_size = current_size
-                        
+                    # Check if we should process this frame
+                    time_since_last = current_time - last_frame_time
+                    should_process = time_since_last >= frame_interval
+                    
+                    # Skip frame if we're falling behind
+                    if self.frame_deficit > frame_interval:
+                        should_process = False
+                        self.frame_deficit -= frame_interval
+                        self.skipped_frames += 1
+                    
+                    # Handle any pending resize
+                    if self._needs_resize:
+                        self.handle_resize_update()
+                        last_frame_time = current_time  # Reset frame timing after resize
+                        continue  # Skip this frame to let resize complete
+                    
+                    if should_process:
                         # Update display
                         self.print_display()
                         last_frame_time = current_time
@@ -408,8 +490,9 @@ class ASCIIWebcam:
                     # Handle keyboard input with shorter timeout
                     running = self.handle_keyboard()
                     
-                    # Small sleep to prevent CPU spinning
-                    time.sleep(0.01)
+                    # Adaptive sleep based on frame deficit
+                    sleep_time = max(0.001, min(0.01, frame_interval - self.frame_deficit))
+                    time.sleep(sleep_time)
                 except Exception as e:
                     self.error_message = f"Runtime error: {e}. Press 'r' to retry or 'q' to quit."
                     time.sleep(1)  # Prevent error message flood
