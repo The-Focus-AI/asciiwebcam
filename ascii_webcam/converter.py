@@ -88,8 +88,16 @@ class ASCIIConverter:
     def _setup_color_function(self, color_scheme: str):
         """Set up the optimized color function for the given scheme."""
         if color_scheme == 'true':
-            # Simple BGR to RGB swap
-            self._color_func_vec = lambda frame: frame[..., ::-1].astype(np.uint8)
+            # Simple BGR to RGB swap with buffer reuse
+            def true_color(frame):
+                if self._color_buffer is None or self._color_buffer.shape != frame.shape:
+                    self._color_buffer = np.empty_like(frame, dtype=np.uint8)
+                # Reorder channels into pre-allocated buffer
+                self._color_buffer[..., 0] = frame[..., 2]  # R = B
+                self._color_buffer[..., 1] = frame[..., 1]  # G = G
+                self._color_buffer[..., 2] = frame[..., 0]  # B = R
+                return self._color_buffer
+            self._color_func_vec = true_color
         elif color_scheme == 'matrix':
             # Optimized matrix effect
             def matrix_color(frame):
