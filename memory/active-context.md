@@ -8,6 +8,10 @@
 
 ## Recent Changes
 
+- Added new character presets:
+  - Braille patterns for high-detail rendering
+  - Dense blocks for smooth gradients
+  - Super dense combined set for maximum detail
 - Updated README with comprehensive documentation
 - Added complete LICENSE file
 - Enhanced setup.py with full metadata

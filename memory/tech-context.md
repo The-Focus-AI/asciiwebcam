@@ -122,6 +122,19 @@
 - Dynamic resizing support
 - Proper aspect ratio handling
 
+### Character Sets
+
+- Classic ASCII (' .:-=+*#%@')
+- Unicode blocks ('░▒▓█')
+- Simple high contrast (' .*#')
+- Detailed gradients (' .",:;!~*=#$@')
+- Matrix style ('01')
+- Dot patterns ('·•●')
+- Line drawing ('─│┌┐└┘├┤┬┴┼')
+- Braille patterns (⠀-⠿, full 8-dot matrix)
+- Dense blocks (' ▁▂▃▄▅▆▇█')
+- Super dense combined set (' ░▒▓█▀▄▌▐╱╲╳■▩▦▥▤▣▢□◈◇◆◉●')
+
 ### Performance Optimizations
 
 - Pre-allocated buffers for:

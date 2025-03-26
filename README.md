@@ -12,6 +12,9 @@ Real-time ASCII art webcam viewer in the terminal. Transform your webcam feed in
   - Unicode blocks
   - Matrix style
   - Dots and lines
+  - Braille patterns (high detail)
+  - Dense blocks (smooth gradients)
+  - Super dense combined set
   - And more!
 - Rich color schemes:
   - True color (webcam colors)

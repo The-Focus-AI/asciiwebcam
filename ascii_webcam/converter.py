@@ -19,6 +19,9 @@ class ASCIIConverter:
         'matrix': '01',           # Binary style
         'dots': '·•●',           # Dot-based style
         'lines': '─│┌┐└┘├┤┬┴┼',   # Line drawing characters
+        'braille': '⠀⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿',  # Braille patterns
+        'dense_blocks': ' ▁▂▃▄▅▆▇█',  # Graduated block elements
+        'super_dense': ' ░▒▓█▀▄▌▐╱╲╳■▩▦▥▤▣▢□◈◇◆◉●',  # Combined blocks and symbols
     }
     
     # Color scheme functions

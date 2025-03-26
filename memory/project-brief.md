@@ -17,7 +17,12 @@ A real-time terminal-based application that converts webcam input into full-colo
 
 1. Classic ASCII (varying density character sets)
 2. Matrix-style rain effect
-3. Unicode blocks/symbols
+3. Unicode blocks/symbols:
+   - Basic blocks (░▒▓█)
+   - Dense blocks (▁▂▃▄▅▆▇█)
+   - Line drawing characters (─│┌┐└┘├┤┬┴┼)
+   - Braille patterns (⠀-⠿)
+   - Super dense combined set
 4. Color processing effects:
    - Standard (true color)
    - Neon
